@@ -8,7 +8,10 @@
 import UIKit
 
 final class FibonacciCalculator {
+    /// The key is the position in the sequence and the value is the actual element in the sequence
     private var sequenceCache = [Int: UInt64?]()
+    
+    /// Once we've found the largest value possible, we want to stop future calculation attempts
     var maxFibonacciPositionReached = false
     
     private enum FibonacciError: LocalizedError {
@@ -22,31 +25,45 @@ final class FibonacciCalculator {
         }
     }
     
+    /// Returns the Fibonacci number at a provided index
+    /// - Parameter n: The position in the sequence
+    /// - Returns: The Fibonacci number at that position
     func nthFibonacciNumber(_ n: Int) throws -> UInt64? {
-        if n == 0 || n == 1 {
-            return UInt64(n)
-        } else {
-            guard !maxFibonacciPositionReached else { return nil }
-            
-            let nMinusOneFibonacci = try sequenceCache[n - 1] as? UInt64 ?? nthFibonacciNumber(n - 1)
-            sequenceCache[n - 1] = nMinusOneFibonacci
-            
-            let nMinusTwoFibonacci = try sequenceCache[n - 2] as? UInt64 ?? nthFibonacciNumber(n - 2)
-            sequenceCache[n - 2] = nMinusTwoFibonacci
-                    
-            guard let nMinusOneFibonacci = nMinusOneFibonacci, let nMinusTwoFibonacci = nMinusTwoFibonacci else {
-                return nil
-            }
-                
-            let (sum, didOverflow) = nMinusOneFibonacci.addingReportingOverflow(nMinusTwoFibonacci)
-            
-            if didOverflow {
-                maxFibonacciPositionReached = true
-                throw FibonacciError.overflow
-            }
-            
-            return sum
+        // We will only calculate future values if we haven't reached the
+        // maximum value yet
+        guard !maxFibonacciPositionReached else {
+            return nil
         }
+        
+        // Handles the base cases of n = 0 and n = 1
+        guard n > 1 else {
+            return UInt64(n)
+        }
+       
+        // Looks up the previous number in the sequence from the cache or calculates it
+        let nMinusOneFibonacci = try sequenceCache[n - 1] as? UInt64 ?? nthFibonacciNumber(n - 1)
+        sequenceCache[n - 1] = nMinusOneFibonacci
+        
+        let nMinusTwoFibonacci = try sequenceCache[n - 2] as? UInt64 ?? nthFibonacciNumber(n - 2)
+        sequenceCache[n - 2] = nMinusTwoFibonacci
+                
+        guard let nMinusOneFibonacci = nMinusOneFibonacci, let nMinusTwoFibonacci = nMinusTwoFibonacci else {
+            return nil
+        }
+         
+        // Tries generating the next number and checks if the addition
+        // triggers an overflow
+        let (sum, didOverflow) = nMinusOneFibonacci.addingReportingOverflow(nMinusTwoFibonacci)
+        
+        // If we overflow, we can't compute any future number in the sequence.
+        // So, we'll throw an and update our flag
+        if didOverflow {
+            maxFibonacciPositionReached = true
+            throw FibonacciError.overflow
+        }
+        
+        // Returns the value at the n-th position in the Fibonacci sequence
+        return sum
     }
 }
 
@@ -109,6 +126,7 @@ extension FibonacciTableViewController {
                 return
             }
 
+            // Generates the next "page" worth of Fibonacci values
             for position in dataSource.count..<dataSource.count + pageAmount {
                 self?.generateFibonacciNumber(at: position)
             }
